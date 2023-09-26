@@ -309,11 +309,6 @@ cls.bInterfaceClass     = 2
 cls.bInterfaceSubClass  = 2
 cls.bInterfaceProtocol  = nil
 cls.endpoints = { EP_IN("Line status") }
-cls.iad = {
-    bInterfaceClass     = 2,
-    bInterfaceSubClass  = 2,
-    bInterfaceProtocol  = nil,
-}
 
 local protoName = {
     [0x00] ="No class specific" , --  USB specification No class specific protocol required
@@ -370,11 +365,7 @@ raw_data_cls.name = "CDC Raw Data"
 raw_data_cls.bInterfaceClass     = 10
 raw_data_cls.bInterfaceSubClass  = nil
 raw_data_cls.bInterfaceProtocol  = nil
-raw_data_cls.iad = {
-    bInterfaceClass     = 2,
-    bInterfaceSubClass  = 2,
-    bInterfaceProtocol  = nil,
-}
+
 raw_data_cls.endpoints = { EP_IN("Incoming Data"), EP_OUT("Outgoning Data") }
 raw_data_cls.on_transaction = data_on_transaction
 
