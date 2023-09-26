@@ -9,6 +9,7 @@ require("usb_class_msc_bot")
 require("usb_class_cdc_acm")
 require("usb_class_hub")
 require("usb_class_audio")
+require("usb_class_audio2")
 require("usb_class_video")
 require("usb_class_dfu")
 
