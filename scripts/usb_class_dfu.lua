@@ -173,13 +173,23 @@ cls.bInterfaceClass     = 0xFE
 cls.bInterfaceSubClass  = 0x01
 cls.bInterfaceProtocol  = 0x02
 
+local protocolName = {
+    [0x01] ="DFU RT",
+    [0x02] ="DFU",
+}
+
 function cls.get_name(desc, context)
+    local name = protocolName[desc.bInterfaceProtocol] or "UNDEFINED"
     return {
         bInterfaceClass = "DFU",
         bInterfaceSubClass = "DFU",
-        bInterfaceProtocol = "DFU",
+        bInterfaceProtocol = name,
     }
 end
 
 register_class_handler(cls)
+
+cls.bInterfaceProtocol  = 0x01
+register_class_handler(cls)
+
 package.loaded["usb_class_dfu"] = cls
