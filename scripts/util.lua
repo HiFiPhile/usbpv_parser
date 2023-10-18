@@ -102,8 +102,8 @@ _G.get_std_request_name = function(v, wValue, wIndex)
         if v == macro_defs.SET_CONFIG and wValue then
             postfix = " :" .. wValue
         end
-        if v == macro_defs.SET_INTERFACE and wIndex then
-            return  "Set Itf :" .. wIndex
+        if v == macro_defs.SET_INTERFACE and wIndex and wValue then
+            return  "Set Itf:" .. wIndex .. " Alt:" .. wValue
         end
         if v == macro_defs.GET_INTERFACE and wIndex then
             return  "Get Itf :" .. wIndex

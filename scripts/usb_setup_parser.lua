@@ -135,6 +135,8 @@ function parser.parse_setup(data, context)
             wValue_field =  field_wValue_get_desc
         elseif bRequest == macro_defs.SET_CONFIG then
             wValue_field = fmt("Config: %d", wValue)
+        elseif bRequest == macro_defs.SET_INTERFACE then
+            wValue_field = fmt("AltSetting: %d", wValue)
         end
     end
 

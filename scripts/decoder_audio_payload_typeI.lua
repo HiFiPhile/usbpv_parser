@@ -55,7 +55,7 @@ local function ALAW_parser(data, context)
     local r = ""
     local cnt = 0
     for i=1,#data,1 do
-        local v = unpack("i8", data, i)
+        local v = unpack("i1", data, i)
         r = r .. tostring(v) .. ","
         cnt = cnt + 1
         if cnt == 16 then
@@ -80,5 +80,15 @@ make_decoder(0x0002, "PCM8", PCM8_parser)
 make_decoder(0x0003, "IEEE_FLOAT", Float_parser)
 make_decoder(0x0004, "ALAW", ALAW_parser)
 make_decoder(0x0005, "MULAW", ALAW_parser)
+
+-- For UAC2 bmformat:bsubslotsize
+make_decoder(0x0101, "PCM 8-bit",  PCM8_parser)
+make_decoder(0x0102, "PCM 16-bit",  PCM_parser)
+make_decoder(0x0103, "PCM 24-bit",  PCM_parser)
+make_decoder(0x0104, "PCM 32-bit",  PCM_parser)
+make_decoder(0x0201, "PCM8", PCM8_parser)
+make_decoder(0x0404, "IEEE_FLOAT", Float_parser)
+make_decoder(0x0801, "ALAW", ALAW_parser)
+make_decoder(0x1001, "MULAW", ALAW_parser)
 
 package.loaded["decoder_audio_payload_typeI"] = decoder
