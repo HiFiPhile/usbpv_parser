@@ -11,10 +11,10 @@
 local html = require("html")
 local macro_defs = require("macro_defs")
 local setup_parser = require("usb_setup_parser")
+local unpack = string.unpack
 require("usb_register_class")
 
 local cls = {}
-cls.name = "Audio Data"
 
 function toBits(num,bits)
     -- returns a table of bits, most significant first.
@@ -1209,6 +1209,24 @@ local ep_control_selector_map = {
     end
 }
 
+local audio_interrupt_data = html.create_struct([[
+    // bInfo
+    uint8_t  Type:1;          // {[0]="Class-Specific", [1]="Vendor-Specficic"}
+    uint8_t  IntfEp:1;        // {[0]="Interface", [1]="Endpoint"}
+    uint8_t  Reserved:6;
+    uint8_t  bAttribute;      // {[0]="Undefined", [1]="Current", [2]="Range", [3]="Mem"}
+    struct{
+        // wValue
+        uint8_t CN_MCN;
+        uint8_t ControlSelector;
+    };
+    struct{
+        // wIndex
+        uint8_t EP_Intf;
+        uint8_t EntityID;
+    };
+]])
+
 audio_render_selector = function(setup, context)
     local s = nil
     local sel = setup.wValue >> 8
@@ -1270,17 +1288,22 @@ local function as_descriptpr_parser(data, offset, context)
     if #data < offset+len then return end
     local t = data:byte(offset + 1)
     local subType = data:byte(offset + 2)
-    if t == macro_defs.ENDPOINT_DESC and len == 7 then
-        return struct_audio_sync_endpoint_desc:build(data:sub(offset), "Endpoint Descriptor")
-    end
+    local itf_data = context:current_interface_data()
+
     if t == macro_defs.CS_ENDPOINT then
+        if #data >= offset+len+6 then
+            local bEndpointAddress = data:byte(offset + len + 2)
+            local bmAttributes = data:byte(offset + len + 3)
+            if bmAttributes == 0x11 then
+                itf_data.ep_fb = bEndpointAddress
+            end
+        end
         return struct_cs_audio_data_endpoint:build(data:sub(offset), "CS Endpoint Descriptor")
     end
     if t ~= macro_defs.CS_INTERFACE then
         return nil
     end
 
-    local itf_data = context:current_interface_data()
     if subType == 1 then
         itf_data.bFormatType = data:byte(offset+5)
         itf_data.bmFormats = data:byte(offset+6)
@@ -1314,22 +1337,60 @@ local function ac_descriptor_parser(data, offset, context)
     return audio_ac_interface[subType] and audio_ac_interface[subType](data, offset, context)
 end
 
-function cls.on_transaction(self, param, data, needDetail, forceBegin)
+local function ctrl_on_transaction(self, param, data, needDetail, forceBegin)
     local addr, ep, pid, ack = param:byte(1), param:byte(2), param:byte(3), param:byte(4)
     if needDetail then
         local status = "success"
+        local html = audio_interrupt_data:build(data, "Audio Interrupt Message").html
+        local audio_format = req2str[data:byte(2)]
+        local t = self:get_endpoint_interface_data(addr, ep)
+        local title = "Audio Notification"
+        return macro_defs.RES_BEGIN_END, self.upv.make_xact_res("Audio Notification", html, data), self.upv.make_xfer_res({
+            title = title,
+            name  = "Audio Notif",
+            desc  = audio_format,
+            status = status,
+            infoHtml = html,
+            data = data,
+        })
+    end
+    return macro_defs.RES_BEGIN_END
+end
+
+local function data_on_transaction(self, param, data, needDetail, forceBegin)
+    local addr, ep, pid, ack = param:byte(1), param:byte(2), param:byte(3), param:byte(4)
+    if needDetail then
+        local status = "success"
+        local name  = "Audio Format"
         local html = "<h1>Audio Data</h1>"
         local audio_format = "Unknown"
         local t = self:get_endpoint_interface_data(addr, ep)
-        local decoderId = t.alt_setting and t.decoderMap and t.decoderMap[t.alt_setting]
-        local audio_frame_decoder = decoderId and audio_as_decoder[decoderId]
-        if audio_frame_decoder then
-            audio_format = audio_frame_decoder.name
-            html = audio_frame_decoder.decode(data, self)
+        local title
+        if t.ep_fb and ep == t.ep_fb then
+            title = "Audio Feedback"
+            name = "Feedback Format"
+            if #data == 3 then
+                audio_format = "10.14"
+                html = "<h1>" .. string.format("%.6f" ,unpack("<I3", data) / 16384) .. " kHz </h1>"
+            elseif #data == 4 then
+                audio_format = "16.16"
+                html = "<h1>" .. string.format("%.6f", unpack("<I4", data) / 65536) .. " kHz </h1>"
+            end
+        else
+            local decoderId = t.alt_setting and t.decoderMap and t.decoderMap[t.alt_setting]
+            local audio_frame_decoder = decoderId and audio_as_decoder[decoderId]
+            if audio_frame_decoder then
+                audio_format = audio_frame_decoder.name
+                html = audio_frame_decoder.decode(data, self)
+            end
+            title = "Audio Out"
+            if ep > 127 then
+                title = "Audio In"
+            end
         end
         return macro_defs.RES_BEGIN_END, self.upv.make_xact_res("Audio Stream", html, data), self.upv.make_xfer_res({
-            title = "Audio Frame" .. tostring(t.alt_setting) .. tostring(decoderId),
-            name  = "Audio Format",
+            title = title,
+            name  = name,
             desc  = audio_format,
             status = status,
             infoHtml = html,
@@ -1343,12 +1404,10 @@ cls.bInterfaceClass     = 1
 cls.bInterfaceSubClass  = 1
 cls.bInterfaceProtocol  = 0x20
 -- register endpoint for both direction
-cls.endpoints = { EP_INOUT("Audio Data") }
 
 local subClassName = {
     [0x01] ="Audio Control"    ,
     [0x02] ="Audio Streaming"  ,
-    [0x03] ="MIDI Streaming"   ,
 }
 function cls.get_name(desc, context)
     local name = subClassName[desc.bInterfaceSubClass] or "UNDEFINED"
@@ -1359,7 +1418,6 @@ function cls.get_name(desc, context)
     }
 end
 
-
 local reg_audio = function(subCls, eps)
     local t = {}
     for k,v in pairs(cls) do
@@ -1369,20 +1427,34 @@ local reg_audio = function(subCls, eps)
     register_class_handler(t)
 end
 
+cls.name = "Audio 2.0 Control"
 cls.descriptor_parser = ac_descriptor_parser
+cls.on_transaction = ctrl_on_transaction
+cls.endpoints = { EP_IN("Control Data",true)}
 reg_audio(1)
+
+cls.name = "Audio 2.0 Data"
 cls.descriptor_parser = as_descriptpr_parser
+cls.on_transaction = data_on_transaction
+cls.endpoints = { EP_IN("Incoming Data",true), EP_OUT("Outgoning Data",true) }
 reg_audio(2)
-reg_audio(3)
+
 -- for interface in IAD
 cls.iad = {
     bInterfaceClass     = 1,
     bFunctionProtocol   = 0x20,
 }
+
+cls.name = "Audio 2.0 Control"
 cls.descriptor_parser = ac_descriptor_parser
+cls.on_transaction = ctrl_on_transaction
+cls.endpoints = { EP_IN("Control Data",true)}
 reg_audio(1)
+
+cls.name = "Audio 2.0 Data"
 cls.descriptor_parser = as_descriptpr_parser
+cls.on_transaction = data_on_transaction
+cls.endpoints = { EP_IN("Incoming Data",true), EP_OUT("Outgoning Data",true) }
 reg_audio(2)
-reg_audio(3)
 
 package.loaded["usb_class_audio2"] = cls
