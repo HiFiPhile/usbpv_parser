@@ -137,25 +137,25 @@ _G.audio_terminal_types = {
     [0x0306] = "Communication speaker",
     [0x0307] = "Low frequency effects speaker",
 
-    [0x0400] = "Bi-directional Undefined",      
-    [0x0401] = "Handset",                       
-    [0x0402] = "Headset",                       
-    [0x0403] = "Speakerphone",                  
-    [0x0404] = "Echo-suppressing speakerphone", 
-    [0x0405] = "Echo-canceling speakerphone",   
+    [0x0400] = "Bi-directional Undefined",
+    [0x0401] = "Handset",
+    [0x0402] = "Headset",
+    [0x0403] = "Speakerphone",
+    [0x0404] = "Echo-suppressing speakerphone",
+    [0x0405] = "Echo-canceling speakerphone",
 
-    [0x0500] = "Telephony Undefined", 
-    [0x0501] = "Phone line",          
-    [0x0502] = "Telephone",           
-    [0x0503] = "Down Line Phone",     
+    [0x0500] = "Telephony Undefined",
+    [0x0501] = "Phone line",
+    [0x0502] = "Telephone",
+    [0x0503] = "Down Line Phone",
 
-    [0x0600] = "External Undefined",        
-    [0x0601] = "Analog connector",          
-    [0x0602] = "Digital audio interface",   
-    [0x0604] = "Legacy audio connector",    
-    [0x0605] = "S/PDIF interface",          
-    [0x0606] = "1394 DA stream",            
-    [0x0607] = "1394 DV stream soundtrack", 
+    [0x0600] = "External Undefined",
+    [0x0601] = "Analog connector",
+    [0x0602] = "Digital audio interface",
+    [0x0604] = "Legacy audio connector",
+    [0x0605] = "S/PDIF interface",
+    [0x0606] = "1394 DA stream",
+    [0x0607] = "1394 DV stream soundtrack",
 
     [0x0700] = "Embedded Undefined",
     [0x0701] = "Level Calibration Noise Source",
@@ -981,7 +981,7 @@ end
 
 cls.bInterfaceClass     = 1
 cls.bInterfaceSubClass  = 1
-cls.bInterfaceProtocol  = nil
+cls.bInterfaceProtocol  = 1
 -- register endpoint for both direction
 cls.endpoints = { EP_INOUT("Audio Data") }
 
