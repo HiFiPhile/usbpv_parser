@@ -122,7 +122,7 @@ local struct_line_coding = html.create_struct([[
 
 function cls.parse_setup_data(setup, data, context)
     local s = req2str[setup.bRequest]
-    if s then 
+    if s then
         if s == "SET_LINE_CODING" or s == "GET_LINE_CODING" then
             local r = struct_line_coding:build(data, "Line Coding")
             return r.html
@@ -156,9 +156,14 @@ local function rndis_on_transaction(self, param, data, needDetail, forceBegin)
     local res = endMark | begindMark
     if res == macro_defs.RES_NONE then res = macro_defs.RES_MORE end
 
+    local title = "CDC Rndis DATA Out"
+    if ep > 127 then
+        title = "CDC Rndis DATA In"
+    end
+
     if needDetail then
         context.status = "incomp"
-        context.title = "CDC Rndis DATA"
+        context.title = title
         context.name = "CDC DATA"
         context.desc = "Rndis DATA"
         context.infoHtml = ""
@@ -184,11 +189,17 @@ local function data_on_transaction(self, param, data, needDetail, forceBegin)
         return macro_defs.RES_NONE
     end
     self.addr = addr
+
+    local title = "CDC DATA Out"
+    if ep > 127 then
+        title = "CDC DATA In"
+    end
+
     if needDetail then
         local context = {}
         context.data = data
         context.status = "success"
-        context.title = "CDC RAW DATA"
+        context.title = title
         context.name = "CDC DATA"
         context.desc = "CDC DATA"
         context.infoHtml = "Raw Data"
@@ -333,6 +344,16 @@ function cls.get_name(desc, context)
 end
 
 register_class_handler(cls)
+
+cls_iad = cls
+-- for interface in IAD
+cls_iad.iad = {
+    bInterfaceClass     = 0x02,
+    bInterfaceSubClass  = 0x02,
+}
+
+register_class_handler(cls_iad)
+
 
 local rndis_data_cls = {}
 for k,v in pairs(cls) do
