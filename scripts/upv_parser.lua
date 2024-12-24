@@ -88,19 +88,19 @@ end
 function upv.make_xfer_res(context)
     return context.title    .. "\0"
         .. context.name     .. "\0"
-        .. context.desc     .. "\0" 
-        .. context.status   .. "\0" 
-        .. context.infoHtml .. "\0" 
+        .. context.desc     .. "\0"
+        .. context.status   .. "\0"
+        .. context.infoHtml .. "\0"
         .. context.data
 end
 
 upv.get_decoder = get_decoder
 
-function upv_parse_transaction(param, data, needDetail, forceBegin, autoDecoder)
+function upv_parse_transaction(param, data, needDetail, forceBegin, autoDecoder, ts, nano)
     local addr, ep = param:byte(1), param:byte(2)
     local decoder = get_decoder(addr, ep, autoDecoder)
     if not decoder then return 0 end
-    return decoder:on_transaction(param, data, needDetail, forceBegin)
+    return decoder:on_transaction(param, data, needDetail, forceBegin, ts, nano)
 end
 
 function upv_valid_parser()

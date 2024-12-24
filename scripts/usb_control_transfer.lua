@@ -7,7 +7,7 @@ local unpack = string.unpack
 local setup_parser = require("usb_setup_parser")
 local macro_defs = require("macro_defs")
 
-local function on_transaction(self, param, data, needDetail, forceBegin)
+local function on_transaction(self, param, data, needDetail, forceBegin, ts, nano)
     local addr, ep, pid, ack = param:byte(1), param:byte(2), param:byte(3), param:byte(4)
     local context
     if needDetail then
@@ -66,7 +66,7 @@ local function on_transaction(self, param, data, needDetail, forceBegin)
             }
             context.data = ""
             if needDetail then
-                context.setup = setup_parser.parse_setup(context.setup.data, self)
+                context.setup = setup_parser.parse_setup(context.setup.data, self, ts, nano)
                 context.infoHtml = context.setup.html
                 context.title = "Control Out"
                 if data:byte(1) > 127 then

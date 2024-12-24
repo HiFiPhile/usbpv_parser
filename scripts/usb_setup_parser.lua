@@ -48,7 +48,7 @@ local function render_field(setup, field, default)
     return nil
 end
 
-function parser.parse_setup(data, context)
+function parser.parse_setup(data, context, ts, nano)
     local setup = {}
     setup.data = data
     local bmRequest, bRequest, wValue, wIndex, wLength = unpack("I1I1I2I2I2", setup.data .. "\xff\xff\xff\xff\xff\xff\xff\xff")
@@ -89,7 +89,7 @@ function parser.parse_setup(data, context)
         local cls = context.get_interface_class and context:get_interface_class(itf)
         cls = cls or context.class_handler
         if cls and cls.parse_setup then
-            local r = cls.parse_setup(setup, context)
+            local r = cls.parse_setup(setup, context, ts, nano)
             if r then return r end
         end
     end
@@ -97,14 +97,14 @@ function parser.parse_setup(data, context)
         local cls = context.get_interface_class and context:get_interface_class(wIndex & 0xff)
         cls = cls or context.class_handler
         if cls and cls.parse_setup then
-            local r = cls.parse_setup(setup, context)
+            local r = cls.parse_setup(setup, context, ts, nano)
             if r then return r end
         end
     elseif recipStr == "Device" or recipStr == "Other" then
         if typStr == "Class" and context.current_device then
             local cls = context:current_device().deviceClass
             if cls and cls.parse_setup then
-                local r = cls.parse_setup(setup, context)
+                local r = cls.parse_setup(setup, context, ts, nano)
                 if r then return r end
             end
         end
@@ -112,7 +112,7 @@ function parser.parse_setup(data, context)
 
     local dev = context.current_device and context:current_device()
     if dev and dev.parse_setup then
-        local r = dev.parse_setup(setup, context)
+        local r = dev.parse_setup(setup, context, ts, nano)
         if r then return r end
     end
 
