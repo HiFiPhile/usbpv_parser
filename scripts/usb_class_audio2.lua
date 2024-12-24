@@ -69,11 +69,12 @@ local field_wValue_audio = html.create_field([[
 
 local audio_render_selector
 
-function cls.parse_setup(setup, context)
+function cls.parse_setup(setup, context, ts, nano)
     if setup.recip == "Interface" and setup.type == "Standard" and setup.bRequest == macro_defs.SET_INTERFACE then
         local itf = setup.wIndex & 0xff
         local itf_data = context:get_interface_data(itf)
-        itf_data.alt_setting = setup.wValue
+        itf_data.alt_setting = itf_data.alt_setting or {}
+        itf_data.alt_setting[ts * 1000000000 + nano] = setup.wValue
         return
     end
 
@@ -1290,6 +1291,10 @@ local function as_descriptpr_parser(data, offset, context)
     local subType = data:byte(offset + 2)
     local itf_data = context:current_interface_data()
 
+    if t == macro_defs.ENDPOINT_DESC then
+        return struct_audio_sync_endpoint_desc:build(data:sub(offset), "Endpoint Descriptor")
+    end
+
     if t == macro_defs.CS_ENDPOINT then
         if #data >= offset+len+6 then
             local bEndpointAddress = data:byte(offset + len + 2)
@@ -1300,6 +1305,11 @@ local function as_descriptpr_parser(data, offset, context)
         end
         return struct_cs_audio_data_endpoint:build(data:sub(offset), "CS Endpoint Descriptor")
     end
+
+    if t == macro_defs.INTERFACE_DESC then
+        itf_data.cur_alt = data:byte(offset + 3)
+    end
+
     if t ~= macro_defs.CS_INTERFACE then
         return nil
     end
@@ -1310,10 +1320,10 @@ local function as_descriptpr_parser(data, offset, context)
     end
     if subType == 2 and itf_data.bFormatType then
         if audio_as_interface[itf_data.bFormatType + 0x1000] then
-            if itf_data.bFormatType == 1 then
+            if itf_data.bFormatType == 1  and itf_data.cur_alt then
                 local bSubslotSize = data:byte(offset+4)
                 itf_data.decoderMap = itf_data.decoderMap or {}
-                itf_data.decoderMap[#itf_data.decoderMap+1]=itf_data.bmFormats * 256 + bSubslotSize
+                itf_data.decoderMap[itf_data.cur_alt + 1]=itf_data.bmFormats * 256 + bSubslotSize
             end
             return audio_as_interface[itf_data.bFormatType + 0x1000](data, offset, context)
         end
@@ -1327,9 +1337,6 @@ local function ac_descriptor_parser(data, offset, context)
     if #data < offset+len then return end
     local t = data:byte(offset + 1)
     local subType = data:byte(offset + 2)
-    if t == macro_defs.ENDPOINT_DESC and len == 7 then
-        return struct_audio_sync_endpoint_desc:build(data:sub(offset), "Endpoint Descriptor")
-    end
     if t ~= macro_defs.CS_INTERFACE then
         return nil
     end
@@ -1357,7 +1364,44 @@ local function ctrl_on_transaction(self, param, data, needDetail, forceBegin)
     return macro_defs.RES_BEGIN_END
 end
 
-local function data_on_transaction(self, param, data, needDetail, forceBegin)
+local function pairsByKeys (t, f)
+    local a = {}
+    for n in pairs(t) do table.insert(a, n) end
+    table.sort(a, f)
+    local i = 0      -- iterator variable
+    local iter = function ()   -- iterator function
+        i = i + 1
+        if a[i] == nil then return nil
+        else return a[i], t[a[i]]
+        end
+    end
+    return iter
+end
+
+function table_to_string(tbl)
+    local result = "{"
+    for k, v in pairs(tbl) do
+        -- Check the key type (ignore any numerical keys - assume its an array)
+        result = result.."[\""..k.."\"]".."="
+
+        -- Check the value type
+        if type(v) == "table" then
+            result = result..table_to_string(v)
+        elseif type(v) == "boolean" then
+            result = result..tostring(v)
+        else
+            result = result.."\""..v.."\""
+        end
+        result = result..","
+    end
+    -- Remove leading commas from the result
+    if result ~= "" then
+        result = result:sub(1, result:len()-1)
+    end
+    return result.."}"
+end
+
+local function data_on_transaction(self, param, data, needDetail, forceBegin, ts, nano)
     local addr, ep, pid, ack = param:byte(1), param:byte(2), param:byte(3), param:byte(4)
     if needDetail then
         local status = "success"
@@ -1365,7 +1409,7 @@ local function data_on_transaction(self, param, data, needDetail, forceBegin)
         local html = "<h1>Audio Data</h1>"
         local audio_format = "Unknown"
         local t = self:get_endpoint_interface_data(addr, ep)
-        local title
+        local title = ""
         if t.ep_fb and ep == t.ep_fb then
             title = "Audio Feedback"
             name = "Feedback Format"
@@ -1377,7 +1421,18 @@ local function data_on_transaction(self, param, data, needDetail, forceBegin)
                 html = "<h1>" .. string.format("%.6f", unpack("<I4", data) / 65536) .. " kHz </h1>"
             end
         else
-            local decoderId = t.alt_setting and t.decoderMap and t.decoderMap[t.alt_setting]
+            local alt = 0
+            if t.alt_setting and next(t.alt_setting) then
+                for time, alt_value in pairsByKeys(t.alt_setting) do
+                    if time > ts * 1000000000 + nano then break
+                    end
+                    alt = alt_value
+                end
+            end
+            local decoderId = alt and t.decoderMap and t.decoderMap[alt]
+            if t.decoderMap then
+                html = table_to_string(t.decoderMap)
+            end
             local audio_frame_decoder = decoderId and audio_as_decoder[decoderId]
             if audio_frame_decoder then
                 audio_format = audio_frame_decoder.name
